@@ -38,6 +38,30 @@ def get_hosts(extra_hosts):
     return hosts
 
 
+# parses volume entries list from running docker container inspection
+def get_volumes(container_mounts):
+    volumes = []
+
+    for mount in container_mounts:
+        if mount['Source'].endswith("_data"):
+            continue
+
+        volumes.append(mount['Destination'])
+    return volumes
+
+
+# parses volume binds from running docker container inspection
+def get_volume_binds(container_mounts):
+    binds = []
+
+    for mount in container_mounts:
+        if mount['Source'].endswith("_data"):
+            continue
+        binds.append(mount['Source'] + ":" + mount['Destination'])
+
+    return binds
+
+
 # --- Run loop
 
 # Connect to docker via docker.sock or TCP
@@ -68,8 +92,10 @@ try:
                     result = cli.create_container(
                         image=event['Actor']['Attributes']['name'],
                         ports=get_port_list(container["Ports"]),
+                        volumes=get_volumes(container_data["Mounts"]),
                         host_config=cli.create_host_config(port_bindings=get_port_mapping(container["Ports"]),
-                                                           extra_hosts=get_hosts(container_data["HostConfig"]["ExtraHosts"])),
+                                                           extra_hosts=get_hosts(container_data["HostConfig"]["ExtraHosts"]),
+                                                           binds=get_volume_binds(container_data["Mounts"])),
                         environment=container_data["Config"]["Env"])
 
                     cli.start(result['Id'])
